@@ -143,12 +143,24 @@ const TESTIMONIALS = [
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
+type FormState = { status: "idle" | "loading" | "done"; message: string };
+
+async function submitEmail(email: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch("/api/waitlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  return { ok: res.ok || res.status === 200, message: data.message ?? data.error ?? "Hata oluştu." };
+}
+
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [email1, setEmail1] = useState("");
-  const [sent1, setSent1] = useState(false);
+  const [form1, setForm1] = useState<FormState>({ status: "idle", message: "" });
   const [email2, setEmail2] = useState("");
-  const [sent2, setSent2] = useState(false);
+  const [form2, setForm2] = useState<FormState>({ status: "idle", message: "" });
 
   // Typewriter
   const [textIndex, setTextIndex] = useState(0);
@@ -273,13 +285,18 @@ export default function Home() {
         </div>
 
         {/* Email form */}
-        {sent1 ? (
+        {form1.status === "done" ? (
           <div className="rounded-2xl bg-amber-50 border border-amber-200 px-8 py-5 text-amber-800 font-semibold text-base">
-            Harika! Seni ilk öğrenenler arasına aldık 🎉
+            {form1.message}
           </div>
         ) : (
           <form
-            onSubmit={(e) => { e.preventDefault(); if (email1) setSent1(true); }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setForm1({ status: "loading", message: "" });
+              const r = await submitEmail(email1);
+              setForm1({ status: "done", message: r.ok ? `Harika! ${r.message} 🎉` : `Hata: ${r.message}` });
+            }}
             className="flex w-full max-w-md flex-col sm:flex-row gap-3"
           >
             <input
@@ -288,16 +305,18 @@ export default function Home() {
               placeholder="E-posta adresin"
               value={email1}
               onChange={(e) => setEmail1(e.target.value)}
-              className="flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-stone-900 placeholder-stone-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              disabled={form1.status === "loading"}
+              className="flex-1 rounded-xl border border-stone-200 bg-white px-4 py-3 text-stone-900 placeholder-stone-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-60"
             />
             <button
               type="submit"
-              className="rounded-xl px-6 py-3 font-bold text-white shadow-sm transition-colors whitespace-nowrap"
+              disabled={form1.status === "loading"}
+              className="rounded-xl px-6 py-3 font-bold text-white shadow-sm transition-colors whitespace-nowrap disabled:opacity-60"
               style={{ background: "#D97706" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "#b45309")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "#D97706")}
             >
-              Erken Erişim Al
+              {form1.status === "loading" ? "Kaydediliyor…" : "Erken Erişim Al"}
             </button>
           </form>
         )}
@@ -512,13 +531,18 @@ export default function Home() {
           <p className="text-amber-100 mb-10 max-w-md leading-relaxed">
             Her gün ertelediğin bir müşteri rakibine gidiyor. Şimdi başla, ilk 30 gün ücretsiz.
           </p>
-          {sent2 ? (
+          {form2.status === "done" ? (
             <div className="rounded-2xl bg-white/20 backdrop-blur px-8 py-5 text-white font-semibold text-base">
-              Harika! Seni ilk öğrenenler arasına aldık 🎉
+              {form2.message}
             </div>
           ) : (
             <form
-              onSubmit={(e) => { e.preventDefault(); if (email2) setSent2(true); }}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setForm2({ status: "loading", message: "" });
+                const r = await submitEmail(email2);
+                setForm2({ status: "done", message: r.ok ? `Harika! ${r.message} 🎉` : `Hata: ${r.message}` });
+              }}
               className="flex w-full max-w-md flex-col sm:flex-row gap-3"
             >
               <input
@@ -527,13 +551,15 @@ export default function Home() {
                 placeholder="E-posta adresin"
                 value={email2}
                 onChange={(e) => setEmail2(e.target.value)}
-                className="flex-1 rounded-xl border-0 px-4 py-3 text-stone-900 placeholder-stone-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/50"
+                disabled={form2.status === "loading"}
+                className="flex-1 rounded-xl border-0 px-4 py-3 text-stone-900 placeholder-stone-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-60"
               />
               <button
                 type="submit"
-                className="rounded-xl bg-stone-900 hover:bg-stone-800 px-6 py-3 font-bold text-white shadow-sm transition-colors whitespace-nowrap"
+                disabled={form2.status === "loading"}
+                className="rounded-xl bg-stone-900 hover:bg-stone-800 px-6 py-3 font-bold text-white shadow-sm transition-colors whitespace-nowrap disabled:opacity-60"
               >
-                Ücretsiz Başla →
+                {form2.status === "loading" ? "Kaydediliyor…" : "Ücretsiz Başla →"}
               </button>
             </form>
           )}
