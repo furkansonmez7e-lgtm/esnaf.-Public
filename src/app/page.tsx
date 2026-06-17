@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SignInButton, SignUpButton, UserButton, Show } from "@clerk/nextjs";
+import { SignInButton, UserButton, Show } from "@clerk/nextjs";
 
 /* ─── Data ─────────────────────────────────────────────────────────────── */
 
@@ -58,66 +58,78 @@ const AFTER_LIST = [
 
 const PRICING = [
   {
-    name: "Ücretsiz",
-    price: "₺0",
-    period: "/ay",
-    desc: "Başlamak için ideal",
+    name: "STARTER",
+    monthly: "₺0",
+    yearly: "₺0",
+    setup: null as string | null,
     features: [
-      "1 sayfalık web sitesi",
-      "Temel WhatsApp entegrasyonu",
-      "Google Profil bağlantısı",
-      "QR Menü (5 ürün)",
+      "1 sayfalık mini vitrin site",
+      "esnaf.co alt alan adı",
+      "WhatsApp iletişim butonu",
+      "QR menü (5 ürüne kadar)",
+      "Temel Google Profil bağlantısı",
     ],
     cta: "Ücretsiz Başla",
+    note: "Kredi kartı gerekmez" as string | null,
     highlight: false,
+    badge: null as string | null,
   },
   {
-    name: "Pro",
-    price: "₺499",
-    period: "/ay",
-    desc: "Büyüyen işletmeler için",
+    name: "PRO",
+    monthly: "₺899",
+    yearly: "₺749",
+    setup: "₺1.990" as string | null,
     features: [
-      "Çok sayfalı AI web sitesi",
-      "Gelişmiş WhatsApp botu",
-      "Google Profil yönetimi",
-      "QR Menü (sınırsız)",
-      "Instagram içerik planı",
-      "Temel analitik",
+      "AI destekli çok sayfalı web sitesi",
+      "Özel domain bağlama (.com / .com.tr)",
+      "WhatsApp otomasyon botu",
+      "Google Business içerik üretici (haftalık AI post)",
+      "QR menü & katalog (sınırsız)",
+      "Instagram içerik takvimi (haftada 3 öneri)",
+      "Temel analitik dashboard",
     ],
-    cta: "Pro'ya Geç →",
+    cta: "30 Gün Ücretsiz Dene →",
+    note: null as string | null,
     highlight: true,
+    badge: "En Popüler" as string | null,
   },
   {
-    name: "Business",
-    price: "₺999",
-    period: "/ay",
-    desc: "Güçlü işletmeler için",
+    name: "BUSINESS",
+    monthly: "₺1.699",
+    yearly: "₺1.419",
+    setup: "₺3.490" as string | null,
     features: [
-      "Pro'daki her şey",
-      "Çoklu şube desteği",
-      "Gelişmiş analitik",
-      "Öncelikli destek",
-      "Özel entegrasyonlar",
-      "Aylık performans raporu",
+      "Pro'daki her şey +",
+      "Online rezervasyon/randevu sistemi",
+      "Çoklu şube desteği (3 lokasyona kadar)",
+      "Müşteri yorum yönetimi & otomatik yanıt",
+      "Gelişmiş analitik & rakip takibi",
+      "Öncelikli destek (WhatsApp hattı)",
+      "Aylık performans raporu (AI üretimli)",
     ],
     cta: "Business Başla",
+    note: null as string | null,
     highlight: false,
+    badge: null as string | null,
   },
   {
-    name: "Ajans",
-    price: "₺2.499",
-    period: "/ay",
-    desc: "Ajanslar ve zincirler için",
+    name: "AJANS",
+    monthly: "₺4.499",
+    yearly: "₺3.749",
+    setup: "₺5.990" as string | null,
     features: [
-      "Business'taki her şey",
-      "Sınırsız müşteri hesabı",
-      "White-label panel",
+      "Business'taki her şey +",
+      "White-label panel (kendi logon + domainin)",
+      "Sınırsız müşteri hesabı yönetimi",
+      "Toplu AI içerik üretimi",
       "API erişimi",
-      "Özel geliştirme saatleri",
+      "Reseller komisyon programı (%20)",
       "Adanmış hesap yöneticisi",
     ],
-    cta: "Ajans Planı Al",
+    cta: "Ajans Görüşmesi Planla",
+    note: null as string | null,
     highlight: false,
+    badge: null as string | null,
   },
 ];
 
@@ -162,6 +174,7 @@ export default function Home() {
   const [form1, setForm1] = useState<FormState>({ status: "idle", message: "" });
   const [email2, setEmail2] = useState("");
   const [form2, setForm2] = useState<FormState>({ status: "idle", message: "" });
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
 
   // Typewriter
   const [textIndex, setTextIndex] = useState(0);
@@ -295,7 +308,7 @@ export default function Home() {
 
         {/* Stats row */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-0 text-sm mb-10">
-          {["5 dk kurulum", "₺499/ay", "%100 Türkçe"].map((stat, i) => (
+          {["5 dk kurulum", "₺0'dan başlıyor", "%100 Türkçe"].map((stat, i) => (
             <span key={stat} className="flex items-center gap-2">
               {i > 0 && <span className="w-1 h-1 rounded-full bg-stone-300 hidden sm:inline-block" />}
               <span className="font-semibold text-stone-700 px-2">{stat}</span>
@@ -438,70 +451,141 @@ export default function Home() {
 
       {/* ── FİYATLAR ────────────────────────────────────────────────────── */}
       <section id="fiyatlar" className="max-w-6xl mx-auto px-5 py-20">
-        <div className="text-center mb-14">
+        <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-4xl font-black text-stone-900 mb-4">Sana uygun plan</h2>
-          <p className="text-stone-500 max-w-sm mx-auto">
+          <p className="text-stone-600 max-w-sm mx-auto text-base">
             İstediğin zaman yükselt ya da düşür. Gizli ücret yok.
           </p>
         </div>
+
+        {/* Billing toggle — pill with two buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
+          <div
+            className="inline-flex rounded-xl p-1 gap-1"
+            style={{ background: "#f5f5f4" }}
+          >
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all focus:outline-none"
+              style={
+                billingCycle === "monthly"
+                  ? { background: "#D97706", color: "#fff" }
+                  : { background: "transparent", color: "#57534e" }
+              }
+            >
+              Aylık
+            </button>
+            <button
+              onClick={() => setBillingCycle("yearly")}
+              className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all focus:outline-none"
+              style={
+                billingCycle === "yearly"
+                  ? { background: "#D97706", color: "#fff" }
+                  : { background: "transparent", color: "#57534e" }
+              }
+            >
+              Yıllık
+            </button>
+          </div>
+          <span className="text-sm font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-full whitespace-nowrap">
+            2 ay bedava
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
           {PRICING.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-2xl p-6 flex flex-col transition-all ${
+              className={`rounded-2xl p-6 flex flex-col transition-all relative bg-white ${
                 plan.highlight
-                  ? "text-white shadow-xl shadow-amber-200/60 ring-2 ring-amber-500 lg:-mt-3 lg:-mb-3"
-                  : "bg-white border border-stone-100 shadow-sm text-stone-900"
+                  ? "shadow-xl shadow-amber-200/60 ring-2 ring-amber-500 lg:-mt-4 lg:-mb-4"
+                  : "border border-stone-200 shadow-sm"
               }`}
-              style={plan.highlight ? { background: "#D97706" } : {}}
             >
-              <div className="mb-5">
-                <p
-                  className={`text-xs font-bold uppercase tracking-widest mb-2 ${
-                    plan.highlight ? "text-amber-200" : "text-stone-400"
-                  }`}
-                >
-                  {plan.name}
-                </p>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className={`text-3xl font-black ${plan.highlight ? "text-white" : "text-stone-900"}`}>
-                    {plan.price}
-                  </span>
-                  <span className={`text-sm ${plan.highlight ? "text-amber-200" : "text-stone-400"}`}>
-                    {plan.period}
+              {/* En Popüler badge */}
+              {plan.badge && (
+                <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                  <span
+                    className="text-white text-sm font-bold px-4 py-1 rounded-full"
+                    style={{ background: "#D97706" }}
+                  >
+                    {plan.badge}
                   </span>
                 </div>
-                <p className={`text-xs ${plan.highlight ? "text-amber-200" : "text-stone-400"}`}>
-                  {plan.desc}
+              )}
+
+              <div className={`mb-5 ${plan.badge ? "mt-3" : ""}`}>
+                <p className="text-sm font-bold uppercase tracking-widest text-stone-600 mb-3">
+                  {plan.name}
                 </p>
+
+                {/* Price */}
+                {billingCycle === "yearly" && plan.monthly !== "₺0" ? (
+                  <div className="mb-2">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-base font-semibold text-stone-400 line-through">{plan.monthly}</span>
+                      <span className="text-3xl font-black text-stone-900">{plan.yearly}</span>
+                      <span className="text-base font-semibold text-stone-600">/ay</span>
+                    </div>
+                    <span className="inline-block mt-1.5 text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-md">
+                      2 ay bedava
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-black text-stone-900">{plan.monthly}</span>
+                    <span className="text-base font-semibold text-stone-600">/ay</span>
+                  </div>
+                )}
+
+                {/* Setup fee */}
+                {plan.setup && (
+                  <p className="text-sm text-stone-600 mt-1">Kurulum: {plan.setup} (tek seferlik)</p>
+                )}
+
+                {/* Free note */}
+                {plan.note && (
+                  <p className="text-sm text-stone-600 mt-1">{plan.note}</p>
+                )}
               </div>
 
-              <ul className="flex-1 space-y-2.5 mb-6">
+              <ul className="flex-1 space-y-3 mb-6">
                 {plan.features.map((f) => (
-                  <li
-                    key={f}
-                    className={`flex items-start gap-2 text-sm ${
-                      plan.highlight ? "text-amber-100" : "text-stone-600"
-                    }`}
-                  >
-                    <span className={`shrink-0 ${plan.highlight ? "text-amber-200" : "text-amber-600"}`}>✓</span>
+                  <li key={f} className="flex items-start gap-2 text-sm text-stone-700">
+                    <span className="shrink-0 text-amber-600 font-bold mt-px">✓</span>
                     {f}
                   </li>
                 ))}
               </ul>
 
               <button
-                className={`w-full rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                className={`w-full rounded-xl py-3 text-sm font-bold transition-colors ${
                   plan.highlight
-                    ? "bg-white text-amber-700 hover:bg-amber-50"
-                    : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-100"
+                    ? "text-white"
+                    : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
                 }`}
+                style={plan.highlight ? { background: "#D97706" } : {}}
+                onMouseEnter={(e) => {
+                  if (plan.highlight) e.currentTarget.style.background = "#b45309";
+                }}
+                onMouseLeave={(e) => {
+                  if (plan.highlight) e.currentTarget.style.background = "#D97706";
+                }}
               >
                 {plan.cta}
               </button>
             </div>
           ))}
         </div>
+
+        {/* Guarantee */}
+        <p className="text-center text-sm font-semibold text-stone-700 mt-10">
+          Tüm ücretli planlarda 30 gün ücretsiz deneme. Memnun kalmazsan ₺0 ödersin.
+        </p>
+        {/* Market reference */}
+        <p className="text-center text-sm text-stone-500 mt-2">
+          Türkiye'de ortalama web sitesi maliyeti: ₺15.000–150.000 (kaynak: sektör raporları)
+        </p>
       </section>
 
       {/* ── REFERANSLAR ─────────────────────────────────────────────────── */}

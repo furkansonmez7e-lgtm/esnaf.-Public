@@ -15,6 +15,19 @@ const SEKTORLER = [
 
 type FormState = "idle" | "loading" | "error";
 
+function generateSlug(name: string): string {
+  const clean = name
+    .toLowerCase()
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${clean}-${suffix}`;
+}
+
 export default function OlusturPage() {
   const router = useRouter();
   const [businessName, setBusinessName] = useState("");
@@ -30,22 +43,48 @@ export default function OlusturPage() {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/generate", {
+      // 1. AI ile HTML üret
+      const genRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessName, phone, sector, description }),
       });
 
-      const data = await res.json();
+      const genData = await genRes.json();
 
-      if (!res.ok || !data.html) {
-        setErrorMsg(data.error ?? "Bir hata oluştu.");
+      if (!genRes.ok || !genData.html) {
+        setErrorMsg(genData.error ?? "Bir hata oluştu.");
         setState("error");
         return;
       }
 
-      localStorage.setItem("generatedHtml", data.html);
-      router.push("/onizleme");
+      // 2. Supabase'e kaydet
+      const slug = generateSlug(businessName);
+      const saveRes = await fetch("/api/sites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_name: businessName,
+          sector,
+          phone,
+          description,
+          html_content: genData.html,
+          slug,
+        }),
+      });
+
+      const saveData = await saveRes.json();
+
+      if (!saveRes.ok) {
+        // Kayıt başarısız olsa bile önizlemeye git
+        localStorage.setItem("generatedHtml", genData.html);
+        router.push("/onizleme");
+        return;
+      }
+
+      // 3. Panel'e yönlendir
+      localStorage.setItem("generatedHtml", genData.html);
+      router.push(`/panel`);
     } catch {
       setErrorMsg("Bağlantı hatası. Lütfen tekrar deneyin.");
       setState("error");
@@ -115,7 +154,10 @@ export default function OlusturPage() {
           Birkaç bilgi yeter — AI sitenizi saniyeler içinde hazırlar.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+        >
           <div>
             <label style={labelStyle}>İşletme Adı</label>
             <input
