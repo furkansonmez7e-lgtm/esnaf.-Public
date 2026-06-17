@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { SignInButton, SignUpButton, UserButton, Show } from "@clerk/nextjs";
 
 /* ─── Data ─────────────────────────────────────────────────────────────── */
 
@@ -233,15 +234,33 @@ export default function Home() {
           </div>
 
           {/* CTA */}
-          <a
-            href="#cta"
-            className="rounded-lg text-white text-sm font-semibold px-4 py-2 transition-colors"
-            style={{ background: "#D97706" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#b45309")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#D97706")}
-          >
-            Erken Erişim →
-          </a>
+          <div className="flex items-center gap-3">
+            <Show when="signed-out">
+              <SignInButton mode="redirect">
+                <button className="hidden sm:block text-sm font-semibold text-stone-600 hover:text-amber-700 transition-colors">
+                  Giriş Yap
+                </button>
+              </SignInButton>
+              <a
+                href="#cta"
+                className="rounded-lg text-white text-sm font-semibold px-4 py-2 transition-colors"
+                style={{ background: "#D97706" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#b45309")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#D97706")}
+              >
+                Erken Erişim →
+              </a>
+            </Show>
+            <Show when="signed-in">
+              <a
+                href="/panel"
+                className="hidden sm:block text-sm font-semibold text-stone-600 hover:text-amber-700 transition-colors"
+              >
+                Panelim
+              </a>
+              <UserButton />
+            </Show>
+          </div>
         </div>
       </nav>
 
