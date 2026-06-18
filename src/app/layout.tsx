@@ -14,8 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Esnaf — AI Destekli Dijital Varlık",
-  description: "Dakikalar içinde AI destekli web siteni kur.",
+  title: {
+    default: "Esnaf — AI Destekli Web Sitesi",
+    template: "%s — Esnaf",
+  },
+  description: "Türk küçük işletmeleri için dakikalar içinde AI destekli profesyonel web sitesi. WhatsApp entegrasyonu, QR menü, Google profili.",
+  openGraph: {
+    siteName: "Esnaf",
+    locale: "tr_TR",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

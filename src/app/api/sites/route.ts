@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { PLAN_LIMITS, type Plan } from "@/lib/stripe";
 import { NextRequest } from "next/server";
 
 export async function GET() {
@@ -20,10 +21,34 @@ export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Yetkisiz erişim" }, { status: 401 });
 
+  const db = getSupabaseAdmin();
+
+  // Plan limit kontrolü
+  const { data: sub } = await db
+    .from("subscriptions")
+    .select("plan")
+    .eq("user_id", userId)
+    .single();
+
+  const plan = ((sub?.plan as Plan) ?? "starter");
+  const limit = PLAN_LIMITS[plan];
+
+  const { count } = await db
+    .from("sites")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (limit !== Infinity && (count ?? 0) >= limit) {
+    return Response.json(
+      { error: `${plan.charAt(0).toUpperCase() + plan.slice(1)} planında en fazla ${limit} site oluşturabilirsiniz. Planınızı yükseltin.` },
+      { status: 403 }
+    );
+  }
+
   const { business_name, sector, phone, description, html_content, slug } =
     await request.json();
 
-  const { data, error } = await getSupabaseAdmin()
+  const { data, error } = await db
     .from("sites")
     .insert({ user_id: userId, business_name, sector, phone, description, html_content, slug })
     .select()

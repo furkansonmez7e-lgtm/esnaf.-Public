@@ -44,7 +44,7 @@ export default function KayitPage() {
           esnaf
         </span>
       </a>
-      <SignUp />
+      <SignUp fallbackRedirectUrl="/panel" />
     </div>
   );
 }

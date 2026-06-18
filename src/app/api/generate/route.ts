@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { auth } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 
 const client = new Anthropic();
@@ -36,10 +37,20 @@ Tüm bölümler arası geçişlerde section padding 80px olsun.
 Sadece HTML kodu döndür, başka açıklama yazma.`;
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return Response.json({ error: "Yetkisiz erişim." }, { status: 401 });
+
   const { description, businessName, phone, sector } = await request.json();
 
   if (!description || !businessName || !phone || !sector) {
     return Response.json({ error: "Tüm alanlar zorunludur." }, { status: 400 });
+  }
+
+  if (typeof businessName !== "string" || businessName.length > 200) {
+    return Response.json({ error: "Geçersiz işletme adı." }, { status: 400 });
+  }
+  if (typeof description !== "string" || description.length > 2000) {
+    return Response.json({ error: "Açıklama çok uzun." }, { status: 400 });
   }
 
   const cleanPhone = phone.replace(/\D/g, "");

@@ -44,7 +44,7 @@ export default function GirisPage() {
           esnaf
         </span>
       </a>
-      <SignIn />
+      <SignIn fallbackRedirectUrl="/panel" />
     </div>
   );
 }

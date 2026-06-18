@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { Suspense } from "react";
 
 const SEKTORLER = [
   "Restoran",
@@ -28,14 +30,43 @@ function generateSlug(name: string): string {
   return `${clean}-${suffix}`;
 }
 
-export default function OlusturPage() {
+function OlusturContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+  const { isLoaded, isSignedIn } = useUser();
+
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
   const [sector, setSector] = useState("");
   const [description, setDescription] = useState("");
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [loadingEdit, setLoadingEdit] = useState(!!editId);
+
+  // Auth guard
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) router.replace("/giris");
+  }, [isLoaded, isSignedIn, router]);
+
+  // Edit modu: mevcut siteyi yükle
+  useEffect(() => {
+    if (!editId || !isSignedIn) return;
+    fetch(`/api/sites/${editId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.site) {
+          setBusinessName(d.site.business_name ?? "");
+          setPhone(d.site.phone ?? "");
+          setSector(d.site.sector ?? "");
+          setDescription(d.site.description ?? "");
+        } else {
+          router.replace("/panel");
+        }
+      })
+      .catch(() => router.replace("/panel"))
+      .finally(() => setLoadingEdit(false));
+  }, [editId, isSignedIn, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,40 +89,67 @@ export default function OlusturPage() {
         return;
       }
 
-      // 2. Supabase'e kaydet
-      const slug = generateSlug(businessName);
-      const saveRes = await fetch("/api/sites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_name: businessName,
-          sector,
-          phone,
-          description,
-          html_content: genData.html,
-          slug,
-        }),
-      });
+      // 2. Kaydet (yeni veya güncelle)
+      if (editId) {
+        const res = await fetch(`/api/sites/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_name: businessName,
+            sector,
+            phone,
+            description,
+            html_content: genData.html,
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          setErrorMsg(d.error ?? "Kayıt hatası.");
+          setState("error");
+          return;
+        }
+        router.push("/panel");
+      } else {
+        const slug = generateSlug(businessName);
+        const saveRes = await fetch("/api/sites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_name: businessName,
+            sector,
+            phone,
+            description,
+            html_content: genData.html,
+            slug,
+          }),
+        });
 
-      const saveData = await saveRes.json();
+        if (!saveRes.ok) {
+          const d = await saveRes.json();
+          setErrorMsg(d.error ?? "Site kaydedilemedi.");
+          setState("error");
+          return;
+        }
 
-      if (!saveRes.ok) {
-        // Kayıt başarısız olsa bile önizlemeye git
-        localStorage.setItem("generatedHtml", genData.html);
-        router.push("/onizleme");
-        return;
+        router.push("/panel");
       }
-
-      // 3. Panel'e yönlendir
-      localStorage.setItem("generatedHtml", genData.html);
-      router.push(`/panel`);
     } catch {
       setErrorMsg("Bağlantı hatası. Lütfen tekrar deneyin.");
       setState("error");
     }
   }
 
+  if (!isLoaded || (isLoaded && !isSignedIn)) return null;
+  if (loadingEdit) {
+    return (
+      <div style={{ fontFamily: "system-ui,sans-serif", background: "#FDFCF9", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#78716C" }}>
+        Yükleniyor...
+      </div>
+    );
+  }
+
   const isLoading = state === "loading";
+  const isEdit = !!editId;
 
   return (
     <div
@@ -122,7 +180,7 @@ export default function OlusturPage() {
           Esnaf
         </a>
         <span style={{ color: "#A8A29E", fontSize: "0.9rem" }}>
-          / İşletmeni Anlat
+          / {isEdit ? "Siteyi Düzenle" : "İşletmeni Anlat"}
         </span>
       </nav>
 
@@ -142,7 +200,7 @@ export default function OlusturPage() {
             lineHeight: 1.2,
           }}
         >
-          İşletmeni Anlat
+          {isEdit ? "Siteyi Yeniden Üret" : "İşletmeni Anlat"}
         </h1>
         <p
           style={{
@@ -151,7 +209,9 @@ export default function OlusturPage() {
             fontSize: "1rem",
           }}
         >
-          Birkaç bilgi yeter — AI sitenizi saniyeler içinde hazırlar.
+          {isEdit
+            ? "Bilgileri güncelleyip AI'ın yeni bir site oluşturmasını sağla."
+            : "Birkaç bilgi yeter — AI sitenizi saniyeler içinde hazırlar."}
         </p>
 
         <form
@@ -234,34 +294,67 @@ export default function OlusturPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              background: isLoading ? "#F5A623" : "#D97706",
-              color: "#fff",
-              border: "none",
-              borderRadius: "10px",
-              padding: "0.9rem 1.5rem",
-              fontSize: "1rem",
-              fontWeight: 700,
-              cursor: isLoading ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-              transition: "background 0.2s",
-            }}
-          >
-            {isLoading ? (
-              <>
-                <span style={spinnerStyle} />
-                AI sitenizi hazırlıyor...
-              </>
-            ) : (
-              "Sitemi Oluştur →"
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {isEdit && (
+              <a
+                href="/panel"
+                style={{
+                  flex: "0 0 auto",
+                  background: "#F5F5F4",
+                  color: "#44403C",
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "0.9rem 1.25rem",
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                İptal
+              </a>
             )}
-          </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              style={{
+                flex: 1,
+                background: isLoading ? "#F5A623" : "#D97706",
+                color: "#fff",
+                border: "none",
+                borderRadius: "10px",
+                padding: "0.9rem 1.5rem",
+                fontSize: "1rem",
+                fontWeight: 700,
+                cursor: isLoading ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                transition: "background 0.2s",
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <span style={spinnerStyle} />
+                  AI hazırlıyor... (~20-30 sn)
+                </>
+              ) : isEdit ? (
+                "Yeniden Üret →"
+              ) : (
+                "Sitemi Oluştur →"
+              )}
+            </button>
+          </div>
+
+          {isLoading && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem", padding: "1rem 1.25rem", background: "#FFFBEB", borderRadius: "10px", border: "1px solid #FDE68A" }}>
+              <GenerationStep label="İşletme bilgileri analiz ediliyor" activeAfterMs={0} />
+              <GenerationStep label="Tasarım ve içerik oluşturuluyor" activeAfterMs={4000} />
+              <GenerationStep label="Mobil uyumluluk kontrol ediliyor" activeAfterMs={12000} />
+            </div>
+          )}
         </form>
       </main>
 
@@ -271,6 +364,20 @@ export default function OlusturPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function OlusturPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ fontFamily: "system-ui,sans-serif", background: "#FDFCF9", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#78716C" }}>
+          Yükleniyor...
+        </div>
+      }
+    >
+      <OlusturContent />
+    </Suspense>
   );
 }
 
@@ -305,3 +412,17 @@ const spinnerStyle: React.CSSProperties = {
   display: "inline-block",
   animation: "spin 0.7s linear infinite",
 };
+
+function GenerationStep({ label, activeAfterMs }: { label: string; activeAfterMs: number }) {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setActive(true), activeAfterMs);
+    return () => clearTimeout(t);
+  }, [activeAfterMs]);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", opacity: active ? 1 : 0.4, transition: "opacity 0.4s" }}>
+      <span style={{ fontSize: "0.75rem" }}>{active ? "✓" : "○"}</span>
+      <span style={{ fontSize: "0.82rem", color: "#92400E", fontWeight: active ? 600 : 400 }}>{label}</span>
+    </div>
+  );
+}

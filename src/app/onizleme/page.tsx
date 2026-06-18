@@ -10,6 +10,9 @@ function OnizlemeContent() {
 
   const [html, setHtml] = useState<string | null>(null);
   const [siteName, setSiteName] = useState("sitem");
+  const [isPublished, setIsPublished] = useState(false);
+  const [slug, setSlug] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (siteId) {
@@ -19,6 +22,8 @@ function OnizlemeContent() {
           if (d.site?.html_content) {
             setHtml(d.site.html_content);
             setSiteName(d.site.business_name ?? "sitem");
+            setIsPublished(d.site.is_published ?? false);
+            setSlug(d.site.slug ?? null);
           } else {
             router.replace("/panel");
           }
@@ -43,6 +48,24 @@ function OnizlemeContent() {
     a.download = `${siteName.replace(/\s+/g, "-")}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleTogglePublish() {
+    if (!siteId) return;
+    setPublishing(true);
+    try {
+      const res = await fetch(`/api/sites/${siteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_published: !isPublished }),
+      });
+      if (res.ok) {
+        const { site } = await res.json();
+        setIsPublished(site.is_published);
+      }
+    } finally {
+      setPublishing(false);
+    }
   }
 
   if (!html) {
@@ -82,26 +105,64 @@ function OnizlemeContent() {
           alignItems: "center",
           gap: "0.75rem",
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
         <a
           href={siteId ? "/panel" : "/"}
           style={{ fontWeight: 700, fontSize: "1rem", color: "#D97706", textDecoration: "none", marginRight: "auto" }}
         >
-          Esnaf
+          ← {siteId ? "Panele Dön" : "Ana Sayfa"}
         </a>
 
-        <a
-          href={siteId ? "/panel" : "/olustur"}
-          style={toolbarBtnStyle}
-        >
-          ← {siteId ? "Panele Dön" : "Düzenle"}
-        </a>
+        {siteId && (
+          <a
+            href={`/olustur?edit=${siteId}`}
+            style={toolbarBtnStyle}
+          >
+            Düzenle
+          </a>
+        )}
 
-        <button onClick={handleIndir} style={{ ...toolbarBtnStyle, background: "#D97706", color: "#fff", borderColor: "#D97706", cursor: "pointer" }}>
+        <button onClick={handleIndir} style={{ ...toolbarBtnStyle, cursor: "pointer" }}>
           İndir
         </button>
+
+        {siteId && (
+          <button
+            onClick={handleTogglePublish}
+            disabled={publishing}
+            style={{
+              ...toolbarBtnStyle,
+              background: isPublished ? "#7f1d1d" : "#D97706",
+              borderColor: isPublished ? "#7f1d1d" : "#D97706",
+              color: "#fff",
+              cursor: publishing ? "not-allowed" : "pointer",
+              opacity: publishing ? 0.7 : 1,
+            }}
+          >
+            {publishing ? "..." : isPublished ? "Yayından Kaldır" : "Yayınla"}
+          </button>
+        )}
+
+        {isPublished && slug && (
+          <a
+            href={`/s/${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...toolbarBtnStyle, background: "#D97706", borderColor: "#D97706", color: "#fff" }}
+          >
+            Siteye Git ↗
+          </a>
+        )}
       </div>
+
+      {/* Published notice */}
+      {isPublished && slug && (
+        <div style={{ background: "#065F46", padding: "0.5rem 1.5rem", fontSize: "0.8rem", color: "#D1FAE5", fontWeight: 600 }}>
+          Yayında: esnaf.co/s/{slug}
+        </div>
+      )}
 
       {/* Preview iframe */}
       <iframe

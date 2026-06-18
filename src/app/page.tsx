@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SignInButton, UserButton, Show } from "@clerk/nextjs";
+import { SignInButton, UserButton, Show, useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 /* ─── Data ─────────────────────────────────────────────────────────────── */
 
@@ -58,6 +59,7 @@ const AFTER_LIST = [
 
 const PRICING = [
   {
+    planKey: "starter" as const,
     name: "STARTER",
     monthly: "₺0",
     yearly: "₺0",
@@ -75,6 +77,7 @@ const PRICING = [
     badge: null as string | null,
   },
   {
+    planKey: "pro" as const,
     name: "PRO",
     monthly: "₺899",
     yearly: "₺749",
@@ -94,6 +97,7 @@ const PRICING = [
     badge: "En Popüler" as string | null,
   },
   {
+    planKey: "business" as const,
     name: "BUSINESS",
     monthly: "₺1.699",
     yearly: "₺1.419",
@@ -113,6 +117,7 @@ const PRICING = [
     badge: null as string | null,
   },
   {
+    planKey: "ajans" as const,
     name: "AJANS",
     monthly: "₺4.499",
     yearly: "₺3.749",
@@ -169,12 +174,48 @@ async function submitEmail(email: string): Promise<{ ok: boolean; message: strin
 }
 
 export default function Home() {
+  const { isSignedIn, isLoaded } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace("/panel");
+  }, [isLoaded, isSignedIn, router]);
+
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [email1, setEmail1] = useState("");
   const [form1, setForm1] = useState<FormState>({ status: "idle", message: "" });
   const [email2, setEmail2] = useState("");
   const [form2, setForm2] = useState<FormState>({ status: "idle", message: "" });
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/waitlist-count")
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.count === "number" && d.count > 0) setWaitlistCount(d.count); })
+      .catch(() => {});
+  }, []);
+
+  async function handleCheckout(planKey: "pro" | "business" | "ajans") {
+    setCheckoutLoading(planKey);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planKey, cycle: billingCycle }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (res.status === 401) {
+        window.location.href = "/giris";
+      }
+    } finally {
+      setCheckoutLoading(null);
+    }
+  }
 
   // Typewriter
   const [textIndex, setTextIndex] = useState(0);
@@ -216,8 +257,8 @@ export default function Home() {
       {/* ── NAVBAR ──────────────────────────────────────────────────────── */}
       <nav
         className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "bg-[#FDFCF9]/90 backdrop-blur-md border-b border-stone-200 shadow-sm"
+          scrolled || menuOpen
+            ? "bg-[#FDFCF9]/95 backdrop-blur-md border-b border-stone-200 shadow-sm"
             : "bg-transparent"
         }`}
       >
@@ -236,7 +277,7 @@ export default function Home() {
             </span>
           </a>
 
-          {/* Links */}
+          {/* Desktop Links */}
           <div className="hidden sm:flex items-center gap-7 text-sm font-medium text-stone-500">
             <a href="#nasil-calisir" className="hover:text-amber-700 transition-colors">
               Nasıl çalışır?
@@ -256,7 +297,7 @@ export default function Home() {
               </SignInButton>
               <a
                 href="#cta"
-                className="rounded-lg text-white text-sm font-semibold px-4 py-2 transition-colors"
+                className="hidden sm:inline-block rounded-lg text-white text-sm font-semibold px-4 py-2 transition-colors"
                 style={{ background: "#D97706" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#b45309")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#D97706")}
@@ -273,8 +314,71 @@ export default function Home() {
               </a>
               <UserButton />
             </Show>
+            {/* Hamburger */}
+            <button
+              className="sm:hidden flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-lg hover:bg-stone-100 transition-colors"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Menüyü aç/kapat"
+            >
+              <span
+                className="block w-5 h-0.5 bg-stone-700 transition-all duration-200"
+                style={{ transform: menuOpen ? "translateY(4px) rotate(45deg)" : "none" }}
+              />
+              <span
+                className="block w-5 h-0.5 bg-stone-700 transition-all duration-200"
+                style={{ opacity: menuOpen ? 0 : 1 }}
+              />
+              <span
+                className="block w-5 h-0.5 bg-stone-700 transition-all duration-200"
+                style={{ transform: menuOpen ? "translateY(-4px) rotate(-45deg)" : "none" }}
+              />
+            </button>
           </div>
         </div>
+
+        {/* Mobile menu */}
+        {menuOpen && (
+          <div className="sm:hidden border-t border-stone-200 bg-[#FDFCF9] px-5 py-4 flex flex-col gap-1">
+            <a
+              href="#nasil-calisir"
+              onClick={() => setMenuOpen(false)}
+              className="py-2.5 text-sm font-semibold text-stone-700 hover:text-amber-700 transition-colors"
+            >
+              Nasıl çalışır?
+            </a>
+            <a
+              href="#fiyatlar"
+              onClick={() => setMenuOpen(false)}
+              className="py-2.5 text-sm font-semibold text-stone-700 hover:text-amber-700 transition-colors"
+            >
+              Fiyatlar
+            </a>
+            <Show when="signed-out">
+              <SignInButton mode="redirect">
+                <button className="mt-1 py-2.5 text-sm font-semibold text-stone-700 hover:text-amber-700 transition-colors text-left w-full">
+                  Giriş Yap
+                </button>
+              </SignInButton>
+              <a
+                href="#cta"
+                onClick={() => setMenuOpen(false)}
+                className="mt-2 w-full text-center rounded-xl text-white text-sm font-bold px-4 py-3 transition-colors"
+                style={{ background: "#D97706" }}
+              >
+                Erken Erişim Al →
+              </a>
+            </Show>
+            <Show when="signed-in">
+              <a
+                href="/panel"
+                onClick={() => setMenuOpen(false)}
+                className="mt-1 py-2.5 text-sm font-semibold text-stone-700 hover:text-amber-700 transition-colors"
+              >
+                Panelim →
+              </a>
+            </Show>
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ────────────────────────────────────────────────────────── */}
@@ -308,7 +412,12 @@ export default function Home() {
 
         {/* Stats row */}
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-0 text-sm mb-10">
-          {["5 dk kurulum", "₺0'dan başlıyor", "%100 Türkçe"].map((stat, i) => (
+          {[
+            "5 dk kurulum",
+            "₺0'dan başlıyor",
+            "%100 Türkçe",
+            ...(waitlistCount !== null ? [`${waitlistCount}+ kayıtlı esnaf`] : []),
+          ].map((stat, i) => (
             <span key={stat} className="flex items-center gap-2">
               {i > 0 && <span className="w-1 h-1 rounded-full bg-stone-300 hidden sm:inline-block" />}
               <span className="font-semibold text-stone-700 px-2">{stat}</span>
@@ -558,22 +667,33 @@ export default function Home() {
                 ))}
               </ul>
 
-              <button
-                className={`w-full rounded-xl py-3 text-sm font-bold transition-colors ${
-                  plan.highlight
-                    ? "text-white"
-                    : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
-                }`}
-                style={plan.highlight ? { background: "#D97706" } : {}}
-                onMouseEnter={(e) => {
-                  if (plan.highlight) e.currentTarget.style.background = "#b45309";
-                }}
-                onMouseLeave={(e) => {
-                  if (plan.highlight) e.currentTarget.style.background = "#D97706";
-                }}
-              >
-                {plan.cta}
-              </button>
+              {plan.planKey === "starter" ? (
+                <a
+                  href="/kayit"
+                  className="w-full rounded-xl py-3 text-sm font-bold transition-colors bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 text-center block"
+                >
+                  {plan.cta}
+                </a>
+              ) : (
+                <button
+                  onClick={() => handleCheckout(plan.planKey as "pro" | "business" | "ajans")}
+                  disabled={checkoutLoading === plan.planKey}
+                  className={`w-full rounded-xl py-3 text-sm font-bold transition-colors ${
+                    plan.highlight
+                      ? "text-white"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+                  }`}
+                  style={plan.highlight ? { background: "#D97706" } : {}}
+                  onMouseEnter={(e) => {
+                    if (plan.highlight && checkoutLoading !== plan.planKey) e.currentTarget.style.background = "#b45309";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (plan.highlight) e.currentTarget.style.background = "#D97706";
+                  }}
+                >
+                  {checkoutLoading === plan.planKey ? "Yönlendiriliyor..." : plan.cta}
+                </button>
+              )}
             </div>
           ))}
         </div>
